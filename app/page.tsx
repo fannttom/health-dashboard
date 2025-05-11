@@ -92,7 +92,7 @@ useEffect(() => {
   const weeklyTRIMP = workouts.reduce((acc, workout) => {
     const date = new Date(workout.start)
     const onejan = new Date(date.getFullYear(), 0, 1)
-    const week = Math.ceil((((date - onejan) / 86400000) + onejan.getDay() + 1) / 7)
+    const week = Math.ceil((((date.getTime() - onejan.getTime()) / 86400000) + onejan.getDay() + 1) / 7)
     const weekKey = `${date.getFullYear()}-W${String(week).padStart(2, '0')}`
     const intensity = workout.type === 'Boxing' ? 1.2 : workout.type === 'Outdoor Walk' ? 0.7 : 1.0
     if (!acc[weekKey]) acc[weekKey] = 0
