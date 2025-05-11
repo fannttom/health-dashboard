@@ -1,4 +1,12 @@
 "use client"
+export const dynamic = 'force-dynamic'
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabase"
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts"
+import { Card, CardContent } from "@/components/ui/card"
+import { motion } from "framer-motion"
+import { addDays, format } from "date-fns"
+
 const useAllMetrics = () => {
   const [metrics, setMetrics] = useState({})
 
@@ -38,14 +46,6 @@ const useAllMetrics = () => {
   return metrics
 }
 
-
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from "recharts"
-import { Card, CardContent } from "@/components/ui/card"
-import { motion } from "framer-motion"
-import { addDays, format } from "date-fns"
-
 export default function Home() {
   const [workouts, setWorkouts] = useState([])
   const [sleepData, setSleepData] = useState([])
@@ -56,15 +56,6 @@ export default function Home() {
   const [history, setHistory] = useState([])
   const [loadingAnswer, setLoadingAnswer] = useState(false)
   const allMetrics = useAllMetrics()
-const [authorized, setAuthorized] = useState(false)
-  const [password, setPassword] = useState("")
-useEffect(() => {
-  const isAuth = localStorage.getItem("authorized")
-  if (isAuth === "true") {
-    setAuthorized(true)
-  }
-}, [])
-
   useEffect(() => {
     const loadData = async () => {
       const { data: workoutData } = await supabase.from('workouts').select('*').order('start', { ascending: true })
@@ -223,31 +214,7 @@ ${prepareHealthMetrics()}
     setQuestion("")
     setLoadingAnswer(false)
   }
-  if (!authorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white shadow-md rounded-2xl p-6 max-w-md w-full text-center">
-          <h2 className="text-xl font-bold mb-4">🔐 Доступ к дашборду</h2>
-          <p className="mb-2 text-gray-600">Введите пароль:</p>
-          <input
-            type="password"
-            className="border px-4 py-2 rounded w-full mb-4"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            onClick={() => setAuthorized(password === "kirill123")}
-          >
-            Войти
-          </button>
-          {password && password !== "kirill123" && (
-            <p className="text-red-500 mt-2">Неверный пароль</p>
-          )}
-        </div>
-      </div>
-    )
-  }
+ 
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-10">
