@@ -1,11 +1,34 @@
 {
-  "name": "supabase-functions",
+  "name": "fitness-gpt",
+  "version": "0.1.0",
+  "private": true,
   "scripts": {
-    "dev": "supabase functions serve parse_pulse",
-    "deploy": "supabase functions deploy parse_pulse",
-    "logs": "supabase functions logs parse_pulse"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "supabase:dev": "supabase functions serve parse_pulse",
+    "supabase:deploy": "supabase functions deploy parse_pulse",
+    "supabase:logs": "supabase functions logs parse_pulse"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.0",
+    "@supabase/supabase-js": "^2.39.5",
+    "class-variance-authority": "^0.7.1",
+    "date-fns": "^4.1.0",
+    "framer-motion": "^12.9.2",
+    "lucide-react": "^0.308.0",
+    "next": "15.3.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "recharts": "^2.9.0",
+    "tailwind-merge": "^3.2.0"
   },
   "devDependencies": {
+    "@types/react": "19.1.2",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.2",
     "supabase": "^1.101.2"
   }
 }
