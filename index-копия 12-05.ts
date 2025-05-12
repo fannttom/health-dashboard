@@ -16,16 +16,14 @@ serve(async (req) => {
 
       if (tableName === "sleep_analysis") {
         const validSleepEntries = (metric.data || [])
-          .filter((entry: any) =>
-            entry.inBedStart &&
-            entry.sleepEnd &&
-            entry.source?.includes("Apple Watch — Кирилл")
-          )
+          .filter((entry: any) => entry.inBedStart && entry.sleepEnd)
           .map((entry: any) => ({
             start: new Date(entry.inBedStart).toISOString(),
             end: new Date(entry.sleepEnd).toISOString(),
             duration_min:
-              (new Date(entry.sleepEnd).getTime() - new Date(entry.inBedStart).getTime()) / 60000,
+              (new Date(entry.sleepEnd).getTime() -
+                new Date(entry.inBedStart).getTime()) /
+              60000,
             source: entry.source ?? null,
           }));
 
