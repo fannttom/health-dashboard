@@ -1,0 +1,264 @@
+✅ РАМКА ПРОЕКТА: Автоматическая выгрузка данных из Auto Export в Supabase
+🧩 Цель:
+
+Создать систему, в которой метрики здоровья из Apple Health (через Auto Export) автоматически выгружаются в Supabase и доступны для анализа через GPT-помощника.
+1. Что уже сделано ✅
+
+A. Инфраструктура:
+
+    ✅ Установлено приложение Health Auto Export.
+
+    ✅ Настроен экспорт метрик в Supabase (через Rest Api).
+
+B. База данных Supabase:
+
+    ✅ Созданы отдельные таблицы для всех нужных метрик. Для категории выгрузки health созданы таблицы:
+
+       active_energy
+
+apple_exercise_time
+
+apple_stand_hour
+
+apple_stand_time
+
+basal_energy_burned
+
+blood_oxygen_saturation
+
+cardio_recovery
+
+environmental_audio_exposure
+
+flights_climbed
+
+heart_rate_variability
+
+oxygen_saturation
+
+physical_effort
+
+pulse_data_full
+
+respiratory_rate
+
+resting_heart_rate
+
+six_minute_walking_test_distance
+
+stair_speed_down
+
+stair_speed_up
+
+step_count
+
+time_in_daylight
+
+vo2_max
+
+walking_asymmetry_percentage
+
+walking_double_support_percentage
+
+walking_heart_rate_average
+
+walking_running_distance
+
+walking_speed
+
+walking_step_length
+
+Для категории выгрузки workouts созданы таблицы:
+heart_rate_workout_data
+workouts с колонками:
+-- Таблица тренировок
+create table if not exists workouts (
+  id uuid primary key default gen_random_uuid(),
+  start timestamp not null,
+  "end" timestamp not null,  -- исправлено
+  type text not null,
+  source text,
+  duration_min float8 not null,
+  energy_kcal float8,
+  steps int4
+);
+
+-- Таблица пульса во время тренировок
+create table if not exists heart_rate_workout_data (
+  id uuid primary key default gen_random_uuid(),
+  workout_id uuid not null references workouts(id) on delete cascade,
+  timestamp timestamp not null,
+  qty float8 not null,
+  type text not null  -- 'Min', 'Max', 'Avg'
+);
+
+
+C. Обработка данных:
+
+    ✅ Настроена рабочая Edge Function (например parse_pulse) для обработки входящих JSON.
+
+    ✅ Функция правильно обрабатывает входящие данные без поля type, определяя таблицу по названию метрики.
+
+    ✅ Данные метрики категории health успешно загружаются в соответствующие таблицы.
+
+последняя рабочая версия файла парсера index.ts:
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+serve(async (req) => {
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
+  try {
+    const { data } = await req.json();
+
+    // 1. Health метрики
+    for (const metric of data.metrics || []) {
+      const tableName = metric.name;
+
+      if (tableName === "sleep_analysis") {
+        // Специальная обработка сна
+        const validSleepEntries = (metric.data || [])
+          .filter((entry: any) => entry.inBedStart && entry.sleepEnd)
+          .map((entry: any) => ({
+            start: new Date(entry.inBedStart).toISOString(),
+            end: new Date(entry.sleepEnd).toISOString(),
+            duration_min: (new Date(entry.sleepEnd).getTime() - new Date(entry.inBedStart).getTime()) / 60000, // Минуты
+            source: entry.source ?? null,
+          }));
+
+        if (validSleepEntries.length > 0) {
+          const { error: sleepError } = await supabase
+            .from("sleep_data")
+            .insert(validSleepEntries);
+          if (sleepError) console.error(`Sleep insert error:`, sleepError);
+        }
+
+        continue; // Уже обработали sleep_analysis, идём дальше
+      }
+
+      // Обычная обработка health-метрик
+      const validEntries = (metric.data || [])
+        .filter((entry: any) => entry.qty && entry.date)
+        .map((entry: any) => ({
+          timestamp: new Date(entry.date).toISOString(),
+          qty: typeof entry.qty === "string" ? parseFloat(entry.qty) : entry.qty,
+          source: entry.source ?? null,
+        }));
+
+      if (validEntries.length === 0) continue;
+
+      const { error } = await supabase.from(tableName).insert(validEntries);
+      if (error) console.error(`Insert error in ${tableName}:`, error);
+    }
+
+    // 2. Workouts
+    for (const workout of data.workouts || []) {
+      const start = workout.start ? new Date(workout.start) : null;
+      const end = workout.end ? new Date(workout.end) : null;
+      if (!start || !end) continue;
+
+      const duration_min = (end.getTime() - start.getTime()) / 1000 / 60;
+
+      const type = workout.name ?? "Unknown";
+      const source = workout.source ?? null;
+
+      const energy_kcal = workout.activeEnergyBurned?.qty ?? null;
+      const distance_km = workout.distance?.qty ?? null;
+      const steps = workout.steps ?? null;
+
+      const { data: insertedWorkout, error: insertError } = await supabase
+        .from("workouts")
+        .insert([
+          {
+            start: start.toISOString(),
+            end: end.toISOString(),
+            duration_min,
+            type,
+            source,
+            energy_kcal,
+            distance_km,
+            steps,
+          },
+        ])
+        .select("id");
+
+      if (insertError || !insertedWorkout || insertedWorkout.length === 0) {
+        console.error("Workout insert error:", insertError);
+        continue;
+      }
+
+      const workout_id = insertedWorkout[0].id;
+
+      // 3. Heart rate data (Min, Avg, Max)
+      for (const hr of workout.heartRateData || []) {
+        const timestamp = hr.date ? new Date(hr.date).toISOString() : null;
+        if (!timestamp) continue;
+
+        const entries = [];
+
+        if (hr.Min !== undefined) {
+          entries.push({ workout_id, timestamp, qty: hr.Min, type: "Min" });
+        }
+        if (hr.Avg !== undefined) {
+          entries.push({ workout_id, timestamp, qty: hr.Avg, type: "Avg" });
+        }
+        if (hr.Max !== undefined) {
+          entries.push({ workout_id, timestamp, qty: hr.Max, type: "Max" });
+        }
+
+        if (entries.length > 0) {
+          const { error: hrError } = await supabase
+            .from("heart_rate_workout_data")
+            .insert(entries);
+
+          if (hrError) {
+            console.error("Heart rate insert error:", hrError);
+          }
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  } catch (err) {
+    console.error("Parse error:", err);
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+    });
+  }
+});
+
+
+2. Что делается сейчас 🔄
+
+    🔄 Добавление поддержки остальных метрик для категории Workouts: обработка их в Edge Functions и маршрутизация по таблицам: heart_rate_workout_data
+workouts.
+
+    🔄 Проверка структуры данных в Auto Export (некоторые метрики приходят с разным форматом).
+
+3. Что нужно сделать дальше 🧭
+
+A. Технические задачи:
+
+    ⚙️ Расширить Edge Function: добавить маршрутизацию для всех оставшихся метрик.
+
+    🧪 Реализовать парсинг по source, unit, valueType, если потребуется для анализа.
+
+    🗃️ Обеспечить ведение логов (например, отдельная таблица sync_logs или через Supabase logs).
+
+    📤 Оптимизировать экспорт: выбрать оптимальную периодичность (час, день, неделя).
+
+B. GPT-интеграция: 
+5. 🤖 Настроить GPT-помощника с доступом к базе (с фильтрами по дате, типу метрики, источнику). 
+6. 📈 Визуализация: создать дашборд (например, на Retool или в UI Supabase) с графиками и фильтрами.
+4. Опциональные улучшения (бэклог) 🛠
+
+    🔐 Аутентификация через Magic Link или OAuth, если планируется общий доступ.
+
+    📲 Настройка уведомлений (например, при падении пульса ниже нормы).
+
+    🧠 ML-интеграция для прогнозов (анализ восстановления, усталости и пр.).
+
+   

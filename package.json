@@ -1,0 +1,11 @@
+{
+  "name": "supabase-functions",
+  "scripts": {
+    "dev": "supabase functions serve parse_pulse",
+    "deploy": "supabase functions deploy parse_pulse",
+    "logs": "supabase functions logs parse_pulse"
+  },
+  "devDependencies": {
+    "supabase": "^1.101.2"
+  }
+}
