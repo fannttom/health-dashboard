@@ -16,11 +16,19 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Install & Deploy Supabase Function
+      - name: Install Supabase CLI via .deb
+        run: |
+          curl -L -o supabase.deb https://github.com/supabase/cli/releases/download/v1.101.2/supabase-cli_1.101.2_amd64.deb
+          dpkg -x supabase.deb supabase-cli
+          mkdir -p ~/.supabase/bin
+          cp supabase-cli/usr/bin/supabase ~/.supabase/bin/
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.supabase/bin:$PATH"
+
+      - name: Deploy Supabase Function
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          wget -qO- https://supabase.com/cli/install/linux | bash
           export PATH="$HOME/.supabase/bin:$PATH"
           supabase link --project-ref bhxpstuyrdmocaxhjbiw
           supabase functions deploy parse_pulse
