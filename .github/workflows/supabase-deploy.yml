@@ -18,8 +18,8 @@ jobs:
 
       - name: Install Supabase CLI
         run: |
-          curl -sL https://github.com/supabase/cli/releases/download/v1.101.2/supabase_1.101.2_linux_amd64.tar.gz | tar -xz
-          sudo mv supabase /usr/local/bin/supabase
+          curl -fsSL https://deb.supabase.com/install.sh | sh -s -- -d
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
 
       - name: Deploy Edge Function
         env:
