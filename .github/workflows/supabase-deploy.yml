@@ -24,7 +24,7 @@ jobs:
             -e SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN \
             -v "$PWD:/workspace" \
             -w /workspace \
-            supabase/cli:latest \
+            ghcr.io/supabase/cli:latest \
             sh -c "
               supabase link --project-ref bhxpstuyrdmocaxhjbiw &&
               supabase functions deploy parse_pulse
